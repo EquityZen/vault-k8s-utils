@@ -83,4 +83,5 @@ func initConfig() {
 	viper.SetDefault("VAULT_PATH", "kubernetes")
 	viper.SetDefault("SHOW_TOKEN", false)
 	viper.SetDefault("VAULT_TOKEN_PATH", "/etc/vault/token")
+	viper.SetDefault("VAULT_LEASE_TLL", 3600)
 }
