@@ -34,9 +34,6 @@ var rootCmd = &cobra.Command{
 	Long: `vault-k8s-utils is a small helper tool for using HashiCorp Vault within Kubernetes.
 
 Use this tool for generating and manipulating vault tokens via K8S pod sidecars`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -50,10 +47,6 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.vault-k8s-utils.yaml)")
 	rootCmd.PersistentFlags().StringVar(&vaultAddr, "vault_addr", viper.GetString("VAULT_ADDR"), "Base URI to Vault API (https://www.your-vault.com)")
@@ -89,4 +82,5 @@ func initConfig() {
 
 	viper.SetDefault("VAULT_PATH", "kubernetes")
 	viper.SetDefault("SHOW_TOKEN", false)
+	viper.SetDefault("VAULT_TOKEN_PATH", "/etc/vault/token")
 }

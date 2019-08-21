@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
@@ -59,6 +60,8 @@ type Token struct {
 }
 
 var showToken bool
+var vaultTokenPath string
+var vaultWriteToken bool
 
 // generateTokenCmd represents the generateToken command
 var generateTokenCmd = &cobra.Command{
@@ -74,15 +77,13 @@ This command assumes a valid K8S authentication method is setup in Vault.`,
 			// value is a path to file, read in file and store as kToken
 			fData, err := ioutil.ReadFile(kToken)
 			if err != nil {
-				fmt.Printf("failed to read kube_token path (%v), err: %v\n", kToken, err)
-				os.Exit(1)
+				log.Fatalf("failed to read kube_token path (%v), err: %v\n", kToken, err)
 			}
 			kToken = string(fData)
 		}
 
 		if strings.Contains(kToken, ":") || strings.Contains(kToken, "/") {
-			fmt.Printf("Invalid token path or format: %v\n", kToken)
-			os.Exit(1)
+			log.Fatalf("Invalid token path or format: %v\n", kToken)
 		}
 
 		// get vault role/path
@@ -100,24 +101,31 @@ This command assumes a valid K8S authentication method is setup in Vault.`,
 			SetResult(&Token).
 			Post(fmt.Sprintf("%v/v1/auth/%v/login", vaultAddr, vPath))
 		if err != nil {
-			fmt.Printf("Failed while making vault login request: %v", err)
-			os.Exit(1)
+			log.Fatalf("Failed while making vault login request: %v", err)
 		}
 
 		// Ensure 200 response code
 		if resp.StatusCode() != 200 {
-			fmt.Printf("Non-200 respond code: %v, errs %v\n", resp.Status(), Errors.Errors)
-			os.Exit(1)
+			log.Fatalf("Non-200 respond code: %v, errs %v\n", resp.Status(), Errors.Errors)
 		}
 
-		fmt.Println("Vault token sucessfully generated")
+		// Print out token info
+		log.Println("Vault token successfully generated")
 		if showToken {
-			fmt.Printf("Token: %v\n", Token.Auth.ClientToken)
+			log.Printf("Token: %v\n", Token.Auth.ClientToken)
 		} else {
-			fmt.Println("Token: <redacted>")
+			log.Println("Token: <redacted>")
 		}
-		fmt.Printf("Renewable: %v\n", Token.Auth.Renewable)
-		fmt.Printf("Lease Duration: %vs\n", Token.Auth.LeaseDuration)
+		log.Printf("Renewable: %v\n", Token.Auth.Renewable)
+		log.Printf("Lease Duration: %vs\n", Token.Auth.LeaseDuration)
+
+		// Write token to filesystem
+		if vaultWriteToken {
+			err := ioutil.WriteFile(vaultTokenPath, []byte(Token.Auth.ClientToken), 0666)
+			if err != nil {
+				log.Fatalf("Failed to write vault token to file: %v", err)
+			}
+		}
 	},
 }
 
@@ -127,6 +135,8 @@ func init() {
 	generateTokenCmd.Flags().StringP("vault_role", "", viper.GetString("VAULT_ROLE"), "Name of the associated vault role to generate the token under.")
 	generateTokenCmd.Flags().StringP("vault_path", "", viper.GetString("VAULT_PATH"), "Name of the vault auth method path for kubernetes (kubernetes).")
 	generateTokenCmd.Flags().BoolVarP(&showToken, "show_token", "", viper.GetBool("SHOW_TOKEN"), "Output vault token to screen. SECURITY RISK!")
+	generateTokenCmd.Flags().BoolVarP(&vaultWriteToken, "vault_write_token", "", viper.GetBool("VAULT_WRITE_TOKEN"), "Write vault token to file, use with vault_token_path option")
+	generateTokenCmd.Flags().StringVarP(&vaultTokenPath, "vault_token_path", "", viper.GetString("VAULT_TOKEN_PATH"), "Path to write out vault token to (/etc/vault/token)")
 	_ = generateTokenCmd.MarkFlagRequired("kube_token")
 	_ = generateTokenCmd.MarkFlagRequired("vault_role")
 }
