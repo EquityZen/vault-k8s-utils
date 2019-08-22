@@ -19,12 +19,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-var cfgFile string
 var vaultAddr string
 
 // rootCmd represents the base command when called without any subcommands
@@ -46,42 +43,8 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.vault-k8s-utils.yaml)")
-	rootCmd.PersistentFlags().StringVar(&vaultAddr, "vault_addr", viper.GetString("VAULT_ADDR"), "Base URI to Vault API (https://www.your-vault.com)")
+	rootCmd.PersistentFlags().StringVar(&vaultAddr, "vault_addr", "", "Base URI to Vault API (https://www.your-vault.com)")
 	_ = rootCmd.MarkPersistentFlagRequired("vault_addr")
 
 	rootCmd.Version = "0.0.1"
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		// Search config in home directory with name ".vault-k8s-utils" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".vault-k8s-utils")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
-
-	viper.SetDefault("VAULT_PATH", "kubernetes")
-	viper.SetDefault("SHOW_TOKEN", false)
-	viper.SetDefault("VAULT_TOKEN_PATH", "/etc/vault/token")
-	viper.SetDefault("VAULT_LEASE_TLL", 3600)
 }
