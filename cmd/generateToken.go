@@ -18,9 +18,9 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"
@@ -59,13 +59,17 @@ func GenerateToken(cmd *cobra.Command, args []string) {
 		// value is a path to file, read in file and store as kToken
 		fData, err := ioutil.ReadFile(kToken)
 		if err != nil {
-			log.Fatalf("failed to read kube_token path (%v), err: %v\n", kToken, err)
+			cmd.PrintErrf("Failed to read kube_token path (%v), err: %v\n", kToken, err)
+			ExitHook()
+			return
 		}
 		kToken = string(fData)
 	}
 
 	if strings.Contains(kToken, ":") || strings.Contains(kToken, "/") {
-		log.Fatalf("Invalid token path or format: %v\n", kToken)
+		cmd.PrintErrf("Invalid token path or format: %v\n", kToken)
+		ExitHook()
+		return
 	}
 
 	// get vault role/path
@@ -77,35 +81,49 @@ func GenerateToken(cmd *cobra.Command, args []string) {
 
 	// Make request to vault API
 	client := resty.New()
+	client.SetTimeout(30 * time.Second)
 	resp, err := client.R().
 		SetBody(map[string]interface{}{"jwt": kToken, "role": vRole}).
 		SetError(&Errors).
 		SetResult(&Token).
 		Post(fmt.Sprintf("%v/v1/auth/%v/login", vaultAddr, vPath))
 	if err != nil {
-		log.Fatalf("Failed while making vault login request: %v", err)
+		cmd.PrintErrf("Failed while making vault login request: %v\n", err)
+		ExitHook()
+		return
 	}
 
 	// Ensure 200 response code
 	if resp.StatusCode() != 200 {
-		log.Fatalf("Non-200 respond code: %v, errs %v\n", resp.Status(), Errors.Errors)
+		cmd.PrintErrf("Non-200 respond code: %v, errs %v\n", resp.Status(), Errors.Errors)
+		ExitHook()
+		return
+	}
+
+	// Ensure we have token data
+	if len(Token.Auth.ClientToken) == 0 {
+		cmd.PrintErr("No token received from vault\n")
+		ExitHook()
+		return
 	}
 
 	// Print out token info
-	log.Println("Vault token successfully generated")
+	cmd.Println("Vault token successfully generated")
 	if showToken {
-		log.Printf("Token: %v\n", Token.Auth.ClientToken)
+		cmd.Printf("Token: %v\n", Token.Auth.ClientToken)
 	} else {
-		log.Println("Token: <redacted>")
+		cmd.Println("Token: <redacted>")
 	}
-	log.Printf("Renewable: %v\n", Token.Auth.Renewable)
-	log.Printf("Lease Duration: %vs\n", Token.Auth.LeaseDuration)
+	cmd.Printf("Renewable: %v\n", Token.Auth.Renewable)
+	cmd.Printf("Lease Duration: %vs\n", Token.Auth.LeaseDuration)
 
 	// Write token to filesystem
 	if vaultWriteToken {
 		err := ioutil.WriteFile(vaultTokenPath, []byte(Token.Auth.ClientToken), 0666)
 		if err != nil {
-			log.Fatalf("Failed to write vault token to file: %v", err)
+			cmd.PrintErrf("Failed to write vault token to file: %v", err)
+			ExitHook()
+			return
 		}
 	}
 }

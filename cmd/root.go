@@ -48,3 +48,14 @@ func init() {
 
 	rootCmd.Version = "0.0.1"
 }
+
+// os.exit unless testing env var is set
+func ExitHook() {
+	val, found := os.LookupEnv("INTERNAL_TEST")
+
+	if found && val == "yes" {
+		// do nothing
+	} else {
+		os.Exit(1)
+	}
+}
