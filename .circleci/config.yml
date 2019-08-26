@@ -6,7 +6,7 @@ executors:
 jobs:
   run_tests:
     executor: go_tests
-    working_directory: /go/src/github.com/EquityZen/go
+    working_directory: /go/src/github.com/EquityZen/vault-k8s-utils
     steps:
       - checkout
       - setup_remote_docker
