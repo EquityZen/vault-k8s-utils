@@ -59,8 +59,63 @@ Token renewed
 < forever >
 ```
 
+## Downloads
+Available via the release page or [Dockerhub](https://hub.docker.com/r/equityzen/vault-k8s-utils)
+
 ## Kubernetes Usage
-Comming soon!
+To use this tool as part of a kubernetes pod deployment just add the following to your pod definitions.  This will write the vault token to the path specified `/etc/vault/token` which can then be used by your pod.  For example it can be used with [envconsul](https://github.com/hashicorp/envconsul) for dynamic environment variables.
+```yaml
+< before containers >
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - vault-k8s-utils generateToken --vault_addr https://your.vault.com --kube_token
+          /var/run/secrets/kubernetes.io/serviceaccount/token --vault_role your_role_name
+          --vault_write_token --vault_token_path /etc/vault/token
+        image: equityzen/vault-k8s-utils
+        imagePullPolicy: Always
+        name: init-vault
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /etc/vault
+          name: vault-token
+< within containers >
+      containers:
+      - command:
+        - sh
+        - -c
+        - vault-k8s-utils renewToken --vault_addr https://your.vault.com --vault_token
+          /etc/vault/token --vault_lease_ttl 3600
+        image: equityzen/vault-k8s-utils
+        imagePullPolicy: Always
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                export VAULT_TOKEN=$(cat /etc/vault/token); curl --insecure --request POST --header "X-Vault-Token: $VAULT_TOKEN" https://your.vault.com/v1/auth/token/revoke-self;
+        name: vault-manager
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /etc/vault
+          name: vault-token
+      volumes:
+      - emptyDir: {}
+        name: vault-token
+```
+The above example assumes you will mount a emptyDir to /etc/vault but this can be any path shared between the pod containers.  For the moment token revocation is not included in the utilities.  This will be coming in a future version.
+
 
 ## Contribution or Bugs
 We welcome any contributions or bug reports!
