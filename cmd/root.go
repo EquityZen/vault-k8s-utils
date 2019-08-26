@@ -23,6 +23,8 @@ import (
 )
 
 var vaultAddr string
+var httpTimeout int
+var GitVersion string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -44,9 +46,10 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&vaultAddr, "vault_addr", "", "Base URI to Vault API (https://www.your-vault.com)")
+	rootCmd.PersistentFlags().IntVar(&httpTimeout, "vault_timeout", 30, "Max request timeout in seconds (30)")
 	_ = rootCmd.MarkPersistentFlagRequired("vault_addr")
 
-	rootCmd.Version = "0.0.1"
+	rootCmd.Version = GitVersion
 }
 
 // os.exit unless testing env var is set

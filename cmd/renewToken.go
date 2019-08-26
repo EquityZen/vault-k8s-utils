@@ -30,6 +30,7 @@ import (
 var vaultToken string
 var vaultLeaseTTL int
 var softFail bool
+var testContext, testCancel = context.WithCancel(context.Background())
 
 // renewTokenCmd represents the renewToken command
 var renewTokenCmd = &cobra.Command{
@@ -41,8 +42,6 @@ The renewal time is should be the full length of the token TTL, renewal will hap
 	Run: RenewToken,
 }
 
-var testContext, testCancel = context.WithCancel(context.Background())
-
 func init() {
 	rootCmd.AddCommand(renewTokenCmd)
 	renewTokenCmd.Flags().StringVarP(&vaultToken, "vault_token", "", "/etc/vault/token", "Vault token or path to token (/etc/vault/token)")
@@ -51,12 +50,13 @@ func init() {
 }
 
 func RenewToken(cmd *cobra.Command, args []string) {
+	testContext, testCancel = context.WithCancel(context.Background())
 	// Get token directly or from path
 	if _, err := os.Stat(vaultToken); err == nil {
 		// value is a path to file, read in file and store as kToken
 		fData, err := ioutil.ReadFile(vaultToken)
 		if err != nil {
-			cmd.PrintErrf("failed to read vault_token path (%v), err: %v\n", vaultToken, err)
+			cmd.PrintErrf("Failed to read vault_token path (%v), err: %v\n", vaultToken, err)
 			ExitHook()
 			return
 		}
@@ -79,33 +79,35 @@ func RenewToken(cmd *cobra.Command, args []string) {
 
 	// We renew half-way into the lease
 	leaseTimer := time.NewTicker(time.Duration(vaultLeaseTTL/2) * time.Second).C
+timer:
 	for {
 		select {
 		case <-leaseTimer:
 			client := resty.New()
-			client.SetTimeout(30 * time.Second)
+			client.SetTimeout(time.Duration(httpTimeout) * time.Second)
 			resp, err := client.R().
 				SetHeader("X-Vault-Token", vaultToken).
 				SetError(&Errors).
 				Post(fmt.Sprintf("%v/v1/auth/token/renew-self", vaultAddr))
 			if err != nil {
-				cmd.PrintErrf("Failed while making vault token renewal request: %v", err)
+				cmd.PrintErrf("Failed while making vault token renewal request: %v\n", err)
 				ExitHook()
 				return
 			}
 
 			if resp.StatusCode() != 200 {
 				if !softFail {
-					cmd.PrintErrf("Failed to renew vault token: %v", Errors.Errors)
+					cmd.PrintErrf("Failed to renew vault token: %v\n", Errors.Errors)
 					ExitHook()
 					return
 				}
-				cmd.Printf("Failed to rewnew vault token: %v", Errors.Errors)
+				cmd.Printf("Failed to renew vault token: %v\n", Errors.Errors)
 			} else {
-				cmd.Printf("Token renewed")
+				cmd.Println("Token renewed")
 			}
 		case <-testContext.Done():
-			break
+			// Break for testing
+			break timer
 		}
 	}
 }

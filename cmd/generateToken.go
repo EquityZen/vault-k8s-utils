@@ -81,7 +81,7 @@ func GenerateToken(cmd *cobra.Command, args []string) {
 
 	// Make request to vault API
 	client := resty.New()
-	client.SetTimeout(30 * time.Second)
+	client.SetTimeout(time.Duration(httpTimeout) * time.Second)
 	resp, err := client.R().
 		SetBody(map[string]interface{}{"jwt": kToken, "role": vRole}).
 		SetError(&Errors).

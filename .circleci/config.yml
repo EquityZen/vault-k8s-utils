@@ -1,0 +1,21 @@
+version: 2.1
+executors:
+  go_tests:
+    docker:
+      - image: circleci/golang:latest
+jobs:
+  run_tests:
+    executor: go_tests
+    working_directory: /go/src/github.com/EquityZen/go
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          command: |
+            go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+            bash <(curl -s https://codecov.io/bash)
+workflows:
+  version: 2
+  build:
+    jobs:
+      - run_tests

@@ -188,6 +188,7 @@ func TestGenerateTokenRequestFail(t *testing.T) {
 		"--vault_role", "kemcho_dev",
 		"--kube_token", "fake_token",
 		"--vault_path", "kubernetes-timeout",
+		"--vault_timeout", "5",
 		"--show_token",
 	})
 	err := rootCmd.Execute()
@@ -301,7 +302,69 @@ func TestGenerateTokenWriteOK(t *testing.T) {
 	srv.Close()
 }
 
-func TestRenewToken(t *testing.T) {
+func TestRenewTokenBadToken(t *testing.T) {
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+
+	rootCmd.SetOut(stdOut)
+	rootCmd.SetErr(stdErr)
+	rootCmd.SetArgs([]string{
+		"renewToken",
+		"--vault_addr", fmt.Sprintf("http://localhost:%v", 0),
+		"--vault_timeout", "5",
+		"--vault_lease_ttl", "10",
+		"--vault_token", "Q:/not.a/valid:path",
+	})
+	err := rootCmd.Execute()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "Invalid token path"), "Desired error message was not found")
+}
+
+func TestRenewTokenUnReadableTokenPath(t *testing.T) {
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+
+	rootCmd.SetOut(stdOut)
+	rootCmd.SetErr(stdErr)
+	rootCmd.SetArgs([]string{
+		"renewToken",
+		"--vault_addr", fmt.Sprintf("http://localhost:%v", 0),
+		"--vault_timeout", "5",
+		"--vault_lease_ttl", "10",
+		"--vault_token", "/tmp/",
+	})
+	err := rootCmd.Execute()
+
+	t.Log(stdOut.String())
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "Failed to read vault_token path"), "Desired error message was not found")
+
+}
+
+func TestRenewTokenEmptyToken(t *testing.T) {
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+
+	rootCmd.SetOut(stdOut)
+	rootCmd.SetErr(stdErr)
+	rootCmd.SetArgs([]string{
+		"renewToken",
+		"--vault_addr", fmt.Sprintf("http://localhost:%v", 0),
+		"--vault_timeout", "5",
+		"--vault_lease_ttl", "10",
+		"--vault_token", "",
+	})
+	err := rootCmd.Execute()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "No token found"), "Desired error message was not found")
+
+}
+
+func TestRenewTokenAllOk(t *testing.T) {
 	srv, port, ginErr := startGin()
 	assert.NoError(t, ginErr, "Gin failed to start for test")
 	stdOut := new(bytes.Buffer)
@@ -312,20 +375,106 @@ func TestRenewToken(t *testing.T) {
 	rootCmd.SetArgs([]string{
 		"renewToken",
 		"--vault_addr", fmt.Sprintf("http://localhost:%v", port),
-		"--vault_token", "this_is_a_fake_token",
+		"--vault_lease_ttl", "10",
+		"--vault_token", "token-good",
 	})
+
+	// delay in routine to cancel loop
+	go func() {
+		time.Sleep(10 * time.Second)
+		testCancel()
+	}()
 	err := rootCmd.Execute()
-
-	time.Sleep(10 * time.Second)
-	testCancel()
-
 	assert.NoError(t, err)
-
-	//t.Log(stdOut.String())
-	//t.Log(stdErr.String())
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "Token renewed"), "Desired stdout message was not found")
 
 	srv.Close()
+}
 
+func TestRenewTokenTimeout(t *testing.T) {
+	srv, port, ginErr := startGin()
+	assert.NoError(t, ginErr, "Gin failed to start for test")
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+
+	rootCmd.SetOut(stdOut)
+	rootCmd.SetErr(stdErr)
+	rootCmd.SetArgs([]string{
+		"renewToken",
+		"--vault_addr", fmt.Sprintf("http://localhost:%v", port),
+		"--vault_timeout", "5",
+		"--vault_lease_ttl", "10",
+		"--vault_token", "token-timeout",
+	})
+
+	// delay in routine to cancel loop
+	go func() {
+		time.Sleep(10 * time.Second)
+		testCancel()
+	}()
+	err := rootCmd.Execute()
+
+	t.Log(stdOut.String())
+	t.Log(stdErr.String())
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "Failed while making vault token renewal request"), "Desired error message was not found")
+
+	srv.Close()
+}
+
+func TestRenewTokenFail(t *testing.T) {
+	srv, port, ginErr := startGin()
+	assert.NoError(t, ginErr, "Gin failed to start for test")
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+
+	rootCmd.SetOut(stdOut)
+	rootCmd.SetErr(stdErr)
+	rootCmd.SetArgs([]string{
+		"renewToken",
+		"--vault_addr", fmt.Sprintf("http://localhost:%v", port),
+		"--vault_lease_ttl", "10",
+		"--vault_token", "token-bad",
+	})
+
+	err := rootCmd.Execute()
+	time.Sleep(8 * time.Second)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "Failed to renew vault token"), "Desired error message was not found")
+
+	srv.Close()
+}
+
+func TestRenewTokenSoftFail(t *testing.T) {
+	srv, port, ginErr := startGin()
+	assert.NoError(t, ginErr, "Gin failed to start for test")
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+
+	rootCmd.SetOut(stdOut)
+	rootCmd.SetErr(stdErr)
+	rootCmd.SetArgs([]string{
+		"renewToken",
+		"--vault_addr", fmt.Sprintf("http://localhost:%v", port),
+		"--vault_lease_ttl", "10",
+		"--vault_token", "token-bad",
+		"--soft_fail",
+	})
+
+	// delay in routine to cancel loop
+	go func() {
+		time.Sleep(10 * time.Second)
+		testCancel()
+	}()
+	err := rootCmd.Execute()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, stdOut, "A standard message should exist")
+	assert.True(t, OutputContainsSubString(stdOut.String(), "Failed to renew vault token"), "Desired error message was not found")
+
+	srv.Close()
 }
 
 ////// Test utilities
@@ -345,6 +494,7 @@ func startGin() (*http.Server, string, error) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.POST("/v1/auth/:path/login", fakeLogin)
+	r.POST("/v1/auth/:path/renew-self", fakeRenewal)
 	srv := &http.Server{
 		Addr:    "localhost:" + strconv.Itoa(port),
 		Handler: r,
@@ -376,7 +526,7 @@ func fakeLogin(c *gin.Context) {
 
 	case Path.Path == "kubernetes-timeout":
 		// artificial delay to trigger resty timeout
-		time.Sleep(35 * time.Second)
+		time.Sleep(7 * time.Second)
 		return
 
 	case Path.Path == "kubernetes-non200":
@@ -399,6 +549,25 @@ func fakeLogin(c *gin.Context) {
 		c.JSONP(http.StatusBadRequest, Errors{Errors: []string{"missing client token"}})
 		return
 	}
+}
+
+// return a faked renewal response
+func fakeRenewal(c *gin.Context) {
+	vaultToken := c.Request.Header.Get("X-Vault-Token")
+
+	switch {
+	case vaultToken == "token-good":
+		c.JSON(http.StatusOK, nil)
+		return
+
+	case vaultToken == "token-timeout":
+		time.Sleep(7 * time.Second)
+		c.JSON(http.StatusOK, nil)
+		return
+	}
+
+	// catch-all missing
+	c.JSON(http.StatusInternalServerError, nil)
 }
 
 // given a string out/err buffer look for a string in output line by line
