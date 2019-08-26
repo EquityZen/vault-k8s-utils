@@ -2,9 +2,9 @@
 <p align="center">
 <p align="center">
 <a href="https://circleci.com/gh/EquityZen/vault-k8s-utils"><img src="https://circleci.com/gh/EquityZen/vault-k8s-utils.svg?style=svg" alt="Build Status"></a>
-<a href="https://codecov.io/gh/go-resty/resty/branch/master"><img src="https://codecov.io/gh/go-resty/resty/branch/master/graph/badge.svg" alt="Code Coverage"></a>
+<a href="https://codecov.io/gh/EquityZen/vault-k8s-utils/branch/master"><img src="https://codecov.io/gh/EquityZen/vault-k8s-utils/branch/master/graph/badge.svg" alt="Code Coverage"></a>
 <a href="https://goreportcard.com/report/EquityZen/vault-k8s-utils"><img src="https://goreportcard.com/badge/github.com/EquityZen/vault-k8s-utils" alt="Go Report Card"></a>
-<a href="https://github.com/go-resty/resty/releases/latest"><img src="https://img.shields.io/github/v/tag/EquityZen/vault-k8s-utils?sort=semver" alt="Release Version"></a>
+<a href="https://github.com/EquityZen/vault-k8s-utils/releases/latest"><img src="https://img.shields.io/github/v/tag/EquityZen/vault-k8s-utils?sort=semver" alt="Release Version"></a>
 <a href="LICENSE"><img src="https://img.shields.io/github/license/EquityZen/vault-k8s-utils" alt="License"></a></p>
 </p>
 
