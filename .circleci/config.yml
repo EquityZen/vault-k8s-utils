@@ -12,6 +12,7 @@ jobs:
       - setup_remote_docker
       - run:
           command: |
+            go build
             go test -v -coverprofile=coverage.txt -covermode=atomic ./...
             bash <(curl -s https://codecov.io/bash)
 workflows:
