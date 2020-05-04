@@ -3,7 +3,7 @@ module github.com/EquityZen/vault-k8s-utils
 go 1.12
 
 require (
-	github.com/gin-gonic/gin v1.4.0
+	github.com/gin-gonic/gin v1.6.3
 	github.com/go-resty/resty/v2 v2.1.0
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
